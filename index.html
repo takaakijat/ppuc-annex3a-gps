@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<title>Annex 3A | GPS Location</title>
+<style>
+:root{color-scheme:light;--ink:#14283c;--muted:#556579;--line:#d9e2ed;--accent:#165f80;--accent-dark:#0e4d6a;--bg:#f3f6fa;--good:#187348;--error:#a52a2a;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);padding:24px 14px 50px;color:var(--ink)}main{max-width:540px;margin:12px auto 0;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 10px 36px #213c6214}
+header{background:var(--accent);color:#fff;padding:23px 24px}header .eyebrow{font-size:12px;font-weight:700;letter-spacing:.07em;opacity:.85}h1{font-size:23px;line-height:1.3;margin:8px 0 6px}header p{font-size:14px;margin:0;opacity:.95;line-height:1.5}section{padding:24px}
+.summary{font-size:15px;line-height:1.65;margin:0 0 18px}button,.buttonLink{width:100%;min-height:52px;display:flex;align-items:center;justify-content:center;gap:9px;padding:12px 14px;border-radius:12px;border:0;cursor:pointer;text-decoration:none;font-size:16px;font-weight:700;line-height:1.3}
+.primary{background:var(--accent);color:#fff}.primary:active{background:var(--accent-dark)}.primary:disabled{opacity:.58;cursor:wait}.secondary{border:1px solid var(--line);background:#fff;color:var(--accent);margin-top:11px}
+#progress{background:#f0f5f8;border-radius:10px;padding:13px;margin-top:16px;font-size:14px;line-height:1.55;min-height:44px}#progress[data-kind="error"]{background:#fff3f1;color:var(--error)}#progress[data-kind="success"]{background:#edf8f0;color:var(--good)}
+#detail{display:none;background:#f9fbfd;border:1px solid var(--line);padding:14px;border-radius:10px;margin-top:10px;line-height:1.6;font-size:14px;overflow-wrap:anywhere}#detail strong{display:block;font-size:19px;font-variant-numeric:tabular-nums;margin-bottom:4px}#openForm{display:none;margin-top:13px;background:var(--good);color:#fff}.help{font-size:12px;color:var(--muted);line-height:1.65;margin:20px 0 0}footer{font-size:12px;color:#68798a;margin:18px auto 0;max-width:540px;text-align:center;line-height:1.5}
+</style>
+</head>
+<body>
+<main>
+<header><div class="eyebrow">PPUC | SMART METER AWARENESS</div><h1>Annex 3A — Meeting GPS Location</h1><p>Capture the location of your community meeting or briefing.</p></header>
+<section>
+<p class="summary">When you are at the meeting venue, tap the button below. Allow location access if your phone asks. The Annex 3A Google Form will open with the coordinates filled in.</p>
+<button class="primary" id="capture" type="button">📍 Capture GPS location</button>
+<div id="progress" role="status" aria-live="polite">Ready to capture the location.</div>
+<div id="detail" aria-live="polite"></div>
+<a class="buttonLink" id="openForm" target="_self" rel="noreferrer noopener">Continue to Annex 3A form</a>
+<button class="secondary" type="button" id="skip">Continue without GPS</button>
+<p class="help">GPS is optional. This page does not send your location to its hosting provider. Your coordinates are added to the Google Form URL locally on your device and are saved as a response only if you submit the form. GPS may be inaccurate indoors or where satellite reception is poor. Use the link only at the actual meeting venue.</p>
+</section>
+</main>
+<footer>If permission is denied or the GPS signal is unavailable, you can continue without coordinates.</footer>
+<script>
+'use strict';
+const PREFILL_TEMPLATE = "https://docs.google.com/forms/d/e/1FAIpQLScq8z3L19hNCLRu9i6XtatCOlWww0NyS5sTKJ-hNtcHH27_lQ/viewform?usp=pp_url&entry.1067339260=__PPUC_GPS_LOCATION__";
+const GPS_MARKER = '__PPUC_GPS_LOCATION__';
+const captureButton = document.getElementById('capture');
+const skipButton = document.getElementById('skip');
+const statusNode = document.getElementById('progress');
+const detailNode = document.getElementById('detail');
+const openForm = document.getElementById('openForm');
+function prefilledUrl(gpsValue){
+  let u;
+  try{u = new URL(PREFILL_TEMPLATE);}catch(e){throw new Error('GPS setup is incomplete. Contact the form owner.');}
+  if(u.protocol !== 'https:' || u.hostname !== 'docs.google.com' || !u.pathname.includes('/forms/')) throw new Error('A Google Forms pre-filled link is required.');
+  let matches=0;
+  for(const [key,value] of u.searchParams){
+    if(key.startsWith('entry.') && value === GPS_MARKER){u.searchParams.set(key,gpsValue);matches++;}
+  }
+  if(matches!==1) throw new Error('The pre-filled link does not contain the GPS marker exactly once. Contact the form owner.');
+  return u.toString();
+}
+function message(s,kind){statusNode.textContent=s;statusNode.dataset.kind=kind||'';}
+function ready(url,coordinateText,accuracy){
+  if(coordinateText){
+    detailNode.style.display='block';
+    detailNode.innerHTML='';
+    const strong=document.createElement('strong'); strong.textContent=coordinateText;
+    const note=document.createElement('span'); note.textContent='Estimated accuracy: ±'+Math.round(accuracy)+' m';
+    detailNode.append(strong,note);
+  }
+  openForm.href=url;openForm.style.display='flex';
+}
+function errorText(e){
+  switch(e.code){case 1:return 'Location permission was denied. You can try again or continue without GPS.';
+  case 2:return 'Location could not be determined. Try outdoors or continue without GPS.';
+  case 3:return 'The GPS request timed out. You can try again.';
+  default:return 'GPS could not be captured. You can try again or continue without GPS.';}
+}
+captureButton.addEventListener('click',()=>{
+  let check;
+  try{check=prefilledUrl('');}catch(e){message(e.message,'error');return;}
+  if(!window.isSecureContext || !navigator.geolocation){message('Location requires an HTTPS page and a supported browser. Continue without GPS.','error');return;}
+  captureButton.disabled=true;
+  openForm.style.display='none';detailNode.style.display='none';
+  message('Getting your current location. Allow location access if prompted.');
+  navigator.geolocation.getCurrentPosition(pos=>{
+    captureButton.disabled=false;
+    const lat=pos.coords.latitude.toFixed(6),lng=pos.coords.longitude.toFixed(6);
+    const coords=lat+', '+lng;
+    let next;
+    try{next=prefilledUrl(coords);}catch(e){message(e.message,'error');return;}
+    ready(next,coords,pos.coords.accuracy);
+    if(pos.coords.accuracy>100){message('Location captured, but estimated accuracy is low. Move outdoors and tap Capture again, or continue to the form.','error');return;}
+    message('GPS captured. Opening the Google Form…','success');
+    window.setTimeout(()=>{window.location.assign(next);},450);
+  },err=>{captureButton.disabled=false;message(errorText(err),'error');},{enableHighAccuracy:true,timeout:20000,maximumAge:0});
+});
+skipButton.addEventListener('click',()=>{
+  try{window.location.assign(prefilledUrl(''));}catch(e){message(e.message,'error');}
+});
+if(PREFILL_TEMPLATE==='PASTE_GOOGLE_PREFILLED_URL_HERE') message('Setup is not complete. Ask the form owner for the configured GPS link.','error');
+</script>
+</body>
+</html>
